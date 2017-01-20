@@ -1,0 +1,86 @@
+<project name="WordCountChallenge" default="clean-dist" basedir="..">
+	<!-- Include ant-contrib for "for" task. -->
+	<taskdef resource="net/sf/antcontrib/antlib.xml">
+		<classpath>
+			<fileset dir="ant/ant-contrib">
+				<include name="**/**" />
+			</fileset>
+		</classpath>
+	</taskdef>
+
+	<target name="init">
+		<property name="src" value="src" />
+		<property name="build" value="build" />
+		<property name="classes" value="${build}/classes" />
+		<property name="jar" value="jar" />
+		<property name="lib" value="lib" />
+		<property name="jar-file" value="challenge.jar" />
+		<property name="dist" value="dist" />
+		<property name="distlib" value="${dist}/lib" />
+
+		<property name="classpath" value="${lib}/bson-3.4.1.jar;${lib}/mongodb-driver-3.4.1.jar;${lib}/mongodb-driver-core-3.4.1.jar" />
+
+		<mkdir dir="${build}" />
+	</target>
+
+	<target name="compile" depends="init" description="Compiles the package root at ${src} to ${build}/classes.">
+		<mkdir dir="${classes}" />
+		<javac srcdir="${src}" destdir="${classes}" classpath="${classpath}" debug="true" />
+	</target>
+
+	<target name="jar" depends="compile" description="Creates the executable jar at ${build}/${jar-file}.">
+		<jar jarfile="${build}/${jar-file}" basedir="${classes}" manifest="${jar}/META-INF/MANIFEST.MF" />
+	</target>
+
+	<target name="dist" depends="jar" description="Copies the executable jar and its dependent libraries to ${dist}.">
+		<mkdir dir="${dist}" />
+
+		<copy file="${build}/${jar-file}" todir="${dist}" />
+
+		<mkdir dir="${distlib}" />
+
+		<copy todir="${distlib}">
+			<fileset dir="${lib}">
+				<include name="*" />
+			</fileset>
+		</copy>
+	</target>
+
+	<target name="clean" depends="init" description="Deletes ${build} and ${dist} directories.">
+		<delete dir="${build}" failonerror="no" />
+		<delete dir="${dist}" failonerror="no" />
+	</target>
+
+	<target name="clean-dist" depends="clean,dist" description="Rebuilds the distribution from scratch." />
+
+	<target name="init-run" depends="init">
+		<property name="mongo" value="localhost:27017" />
+		<property name="report-file" value="output/report.csv" />
+		<property name="multi-agent-output" value="output/multi-agent.log" />
+		<property name="jvm-args" value="-Xmx8192m" />
+		<property name="data-file" value="f:/data/enwiki-20170101-pages-articles-multistream.xml" />
+		<property name="single-agent-id" value="0" />
+		<!--<property name="many-agent-ids" value="0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15" />-->
+		<property name="many-agent-ids" value="0,1" />
+	</target>
+
+	<target name="run-agent" depends="init-run" description="Starts a single agent with the id ${single-agent-id}.">
+		<java fork="true" jar="${dist}/${jar-file}" jvmargs="${jvm-args}" args="-source ${data-file} -mongo ${mongo} -id ${single-agent-id}" />
+	</target>
+
+	<target name="run-many-agents" depends="init-run" description="Starts an agent for every agent id in the list ${many-agent-ids}.">
+		<for list="${many-agent-ids}" param="agent-id">
+			<sequential>
+				<java fork="true" spawn="true" jar="${dist}/${jar-file}" jvmargs="${jvm-args}" args="-source ${data-file} -mongo ${mongo} -id @{agent-id}" />
+			</sequential>
+		</for>
+	</target>
+
+	<target name="run-report" depends="init-run" description="Generates a word count report from MongoDB to the CSV file ${report-file}.">
+		<java fork="true" jar="${dist}/${jar-file}" jvmargs="${jvm-args}" args="-mongo ${mongo} -report ${report-file}" />
+	</target>
+
+	<target name="run-cleardown" depends="init-run" description="Clears down the MongoDB database.">
+		<java fork="true" jar="${dist}/${jar-file}" jvmargs="${jvm-args}" args="-mongo ${mongo} -cleardown true" />
+	</target>
+</project>

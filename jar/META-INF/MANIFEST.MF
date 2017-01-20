@@ -1,0 +1,2 @@
+Main-Class: org.xenocat.floow.challenge.Agent
+Class-Path: lib/bson-3.4.1.jar lib/mongodb-driver-3.4.1.jar lib/mongodb-driver-core-3.4.1.jar
