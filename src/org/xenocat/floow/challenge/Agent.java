@@ -319,6 +319,13 @@ public class Agent {
 	}
 
 	/**
+	 * Bulk writes sent by {@link #incrementCounts(Map)} will contain at most
+	 * this number of updates. The complete set of updates will be split across
+	 * several batches in this way.
+	 */
+	private static final int INCREMENT_BATCH_SIZE = 100000;
+
+	/**
 	 * Updates the counts collection in the database, incrementing the count
 	 * field for each word.
 	 * <p>
@@ -340,17 +347,31 @@ public class Agent {
 					new UpdateOptions().upsert(true));
 		}).collect(Collectors.toList());*/
 
-		List<UpdateOneModel<Document>> updates = new ArrayList<>(wordCounts.size());
+		List<UpdateOneModel<Document>> updates = new ArrayList<>(Math.min(wordCounts.size(), INCREMENT_BATCH_SIZE));
+
+		UpdateOptions updateOptions = new UpdateOptions().upsert(true);
 
 		for (Entry<String, Long> entry : wordCounts.entrySet()) {
 			if (currentThread.isInterrupted()) {
-				throw new InterruptedException("Interrupted while updating counts.");
+				throw new InterruptedException("Interrupted while updating counts.");		
 			}
-
+			
 			updates.add(new UpdateOneModel<Document>(Filters.eq(WORD_FIELD, entry.getKey()),
 					Updates.combine(Updates.setOnInsert(WORD_FIELD, entry.getKey()),
 							Updates.inc(COUNT_FIELD, entry.getValue())),
-					new UpdateOptions().upsert(true)));
+					updateOptions));
+
+			// Send a bulkWrite request every INCREMENT_BATCH_SIZE entries, so
+			// that we are not sending requests that are too big for the
+			// connection timeout.
+			if (updates.size() % INCREMENT_BATCH_SIZE == 0) {
+
+				getCounts().bulkWrite(updates, new BulkWriteOptions().ordered(false));
+
+				log("Batch of " + updates.size() + " updates sent.");
+
+				updates = new ArrayList<>(Math.min(wordCounts.size(), INCREMENT_BATCH_SIZE));
+			}
 		}
 
 		// Don't need acknowledgement for this update.
@@ -633,7 +654,7 @@ public class Agent {
 		}
 
 		public String toString() {
-			return "Partition " + getIndex();
+			return "Partition " + getIndex() + " of " + partitionCount;
 		}
 	}
 
@@ -690,7 +711,7 @@ public class Agent {
 				String line = d.getString(WORD_FIELD) + ", " + d.getLong(COUNT_FIELD);
 
 				writer.println(line);
-				//System.out.println(line);
+				// System.out.println(line);
 			});
 
 			System.out.println("Report complete.");

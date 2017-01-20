@@ -31,7 +31,9 @@ import java.util.stream.StreamSupport;
  * Given the input file, PartitionData provides a Stream of the words in the
  * partition.
  * <p>
- * A word is defined as a sequence of characters that match the regex <code>[\w\p{Alpha}]+</code>, separated by sequences of characters that do not.
+ * A word is defined as a sequence of characters that match the regex
+ * <code>[\w\p{Alpha}]+</code>, separated by sequences of characters that do
+ * not.
  * 
  * @author Ruth Foster
  */
@@ -44,7 +46,7 @@ public class PartitionData {
 	 * Given that the partition size is of the order of hundreds of megabytes,
 	 * this is probably a pretty good assumption.
 	 */
-	public static final long PARTITION_SIZE = 0x40000000; // 1 Gb
+	public static final long PARTITION_SIZE = 0x20000000; // 512 Mb
 
 	/**
 	 * Assumed character encoding of the input file.
@@ -220,7 +222,7 @@ public class PartitionData {
 			if (currentThread.isInterrupted()) {
 				throw new InterruptedException("Interrupted while counting.");
 			}
-
+			
 			word = word.toLowerCase();
 
 			Long count = counts.get(word);
